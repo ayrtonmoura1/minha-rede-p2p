@@ -16,7 +16,7 @@
         /* Modal de Login Opcional */
         #login-overlay { backdrop-filter: blur(5px); }
         
-        /* Ajustes para o Editor parecer o Notion (sem bordas, texto limpo) */
+        /* Ajustes para o Editor parecer o Notion */
         .workspace-card { max-width: 900px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 2rem 3rem; min-height: 80vh; }
         .ql-toolbar.ql-snow { border: none; border-bottom: 1px solid #e5e7eb; padding: 10px 0; margin-bottom: 20px; }
         .ql-container.ql-snow { border: none; font-size: 1.125rem; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; color: #374151; line-height: 1.7; }
@@ -24,11 +24,11 @@
         .ql-editor.ql-blank::before { left: 0; color: #9ca3af; font-style: normal; }
         
         /* Avatares dos Usuários no Header */
-        .user-avatar { width: 32px; height: 32px; rounded-full; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; border: 2px solid white; margin-left: -8px; position: relative; cursor: pointer; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; border: 2px solid white; margin-left: -8px; position: relative; cursor: pointer; }
         .user-avatar:hover .tooltip { display: block; }
         .tooltip { display: none; position: absolute; top: 110%; background: #1f2937; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 50; }
         
-        /* Cursores Coloridos do y-quill */
+        /* Cursores Coloridos em tempo real */
         .yRemoteSelection { background-color: rgb(250, 229, 211); }
         .yRemoteSelectionHead { position: absolute; border-left: 2px solid #ff0000; height: 100%; box-sizing: border-box; }
         .yRemoteSelectionHead::after { content: attr(user-name); position: absolute; left: -2px; top: -15px; background-color: #ff0000; color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 2px; white-space: nowrap; }
@@ -47,7 +47,7 @@
 
     <div class="workspace-card" style="display: none;" id="main-app">
         <header class="flex justify-between items-end mb-6 pb-4 border-b border-gray-100">
-            <div>
+            <div class="flex-1">
                 <span class="text-xs font-bold text-indigo-500 uppercase tracking-wider">Nota P2P</span>
                 <div class="flex items-center gap-3 mt-1">
                     <input type="text" id="note-title" placeholder="Título da Página" class="text-4xl font-extrabold text-gray-900 border-none focus:ring-0 outline-none w-full bg-transparent" autocomplete="off">
@@ -55,7 +55,7 @@
             </div>
             
             <div class="flex items-center">
-                <span class="text-xs text-gray-400 mr-4" id="users-count">Sincronizando...</span>
+                <span class="text-xs text-gray-400 mr-4 whitespace-nowrap" id="users-count">Sincronizando...</span>
                 <div id="users-list" class="flex pl-2">
                     </div>
             </div>
@@ -65,8 +65,10 @@
             <div id="editor"></div>
         </main>
 
-        <footer class="mt-12 flex justify-between items-center">
-            <button id="share-btn" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-medium text-sm flex items-center gap-2">
+        <footer class="mt-12 flex justify-between items-center border-t border-gray-100 pt-6">
+            <p class="text-xs text-gray-400">Dados salvos no seu PC e sincronizados via P2P.</p>
+            <button id="share-btn" class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-100 transition font-medium text-sm flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                 Copiar Link Mágico
             </button>
         </footer>
@@ -84,7 +86,7 @@
         const usernameInput = document.getElementById('username-input');
         const joinBtn = document.getElementById('join-btn');
 
-        // Gera uma cor aleatória para o cursor do usuário
+        // Cor aleatória pro cursor
         const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
         let myName = localStorage.getItem('p2p_username') || '';
 
@@ -102,7 +104,7 @@
             }
         });
 
-        // 2. Função principal que roda APÓS o login
+        // 2. Inicia o App após identificar o usuário
         function iniciarWorkspace() {
             loginOverlay.style.opacity = '0';
             setTimeout(() => {
@@ -117,30 +119,19 @@
                 window.history.replaceState({}, '', `?room=${roomName}`);
             }
 
-            // Inicializa Yjs
             const ydoc = new Y.Doc();
-            
-            // Y.Map para o Título (Texto simples)
             const yMap = ydoc.getMap('metadata');
-            // Y.Text para o Editor Rich Text (Quill exige Y.Text)
             const yText = ydoc.getText('quill-content');
 
-            // Conexões de Banco e Rede
             const localProvider = new IndexeddbPersistence(roomName, ydoc);
             const networkProvider = new WebrtcProvider(roomName, ydoc, {
                 signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
             });
 
-            // 3. Configurar o "Awareness" (Presença na Sala)
+            // 3. Awareness (Presença)
             const awareness = networkProvider.awareness;
-            
-            // Avisa a rede quem sou eu
-            awareness.setLocalStateField('user', {
-                name: myName,
-                color: myColor
-            });
+            awareness.setLocalStateField('user', { name: myName, color: myColor });
 
-            // Escuta quem entra e sai
             awareness.on('change', () => {
                 const usersListDiv = document.getElementById('users-list');
                 const usersCountSpan = document.getElementById('users-count');
@@ -152,7 +143,6 @@
                 states.forEach(state => {
                     if (state.user) {
                         onlineCount++;
-                        // Cria o "Avatar" de quem está online
                         const inicial = state.user.name.charAt(0).toUpperCase();
                         const div = document.createElement('div');
                         div.className = 'user-avatar shadow-sm transition-transform hover:scale-110';
@@ -168,10 +158,10 @@
                 usersCountSpan.innerText = onlineCount > 1 ? `${onlineCount} na sala` : 'Só você';
             });
 
-            // 4. Configurar o Editor Quill (Estilo Notion)
+            // 4. Configurar Quill (Rich Text)
             const quill = new Quill('#editor', {
                 theme: 'snow',
-                placeholder: 'Digite "/" para comandos ou comece a escrever...',
+                placeholder: 'Comece a escrever sua nota...',
                 modules: {
                     toolbar: [
                         [{ 'header': [1, 2, 3, false] }],
@@ -183,10 +173,10 @@
                 }
             });
 
-            // Conecta o Yjs ao Quill (Isso faz a mágica dos cursores e rich text!)
+            // Liga o Yjs ao Quill
             const binding = new QuillBinding(yText, quill, awareness);
 
-            // 5. Sincronização do Título (Independente do Quill)
+            // 5. Sincronizar o Título da Página
             const titleInput = document.getElementById('note-title');
             
             localProvider.on('synced', () => {
@@ -201,91 +191,19 @@
 
             titleInput.addEventListener('input', () => yMap.set('title', titleInput.value));
 
-            // 6. Botão de Compartilhar
+            // 6. Botão Compartilhar
             document.getElementById('share-btn').addEventListener('click', async () => {
                 const url = window.location.href;
                 try {
                     await navigator.clipboard.writeText(url);
-                    alert(`Link copiado! Envie para sua equipe acessar.`);
+                    alert('Link copiado! Envie para sua equipe acessar.');
                 } catch(e) {
                     const i = document.createElement('input');
                     i.value = url; document.body.appendChild(i); i.select(); document.execCommand('copy'); i.remove();
-                    alert(`Link copiado!`);
+                    alert('Link copiado pelo método alternativo!');
                 }
             });
         }
-    </script>
-</body>
-</html>
-        // Recebendo dados da rede/banco local
-        yWorkspace.observe(() => {
-            if (document.activeElement !== titleInput) {
-                titleInput.value = yWorkspace.get('title') || '';
-            }
-            if (document.activeElement !== contentInput) {
-                contentInput.value = yWorkspace.get('content') || '';
-            }
-        });
-
-        // Enviando dados da tela para a rede
-        titleInput.addEventListener('input', () => yWorkspace.set('title', titleInput.value));
-        contentInput.addEventListener('input', () => yWorkspace.set('content', contentInput.value));
-
-        // 6. Monitoramento de Usuários Online
-        networkProvider.awareness.on('change', () => {
-            // Quantidade de peers (inclui você mesmo)
-            const users = networkProvider.awareness.getStates().size;
-            
-            if (users > 1) {
-                statusDot.classList.replace('bg-gray-400', 'bg-green-500');
-                statusText.innerText = `${users} online na sala`;
-            } else {
-                statusDot.classList.replace('bg-green-500', 'bg-gray-400');
-                statusText.innerText = "Somente você (Salvo localmente)";
-            }
-        });
-
-        // 7. Botão de Compartilhar (Robusto e à prova de bloqueios)
-        shareBtn.addEventListener('click', async () => {
-            const currentUrl = window.location.href;
-            const originalText = shareBtn.innerHTML;
-            
-            try {
-                // Tenta a API moderna de Clipboard
-                await navigator.clipboard.writeText(currentUrl);
-                feedbackSucesso();
-            } catch (err) {
-                // Fallback para navegadores restritos ou HTTP sem localhost
-                try {
-                    const tempInput = document.createElement('input');
-                    tempInput.value = currentUrl;
-                    document.body.appendChild(tempInput);
-                    tempInput.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(tempInput);
-                    feedbackSucesso();
-                } catch (fallbackErr) {
-                    // Se tudo falhar, avisa o usuário
-                    alert('Seu navegador bloqueou a cópia automática. Por favor, copie o link diretamente da barra de endereços (URL) lá em cima!');
-                }
-            }
-
-            function feedbackSucesso() {
-                shareBtn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                    Link Copiado!
-                `;
-                shareBtn.classList.replace('bg-indigo-600', 'bg-green-600');
-                shareBtn.classList.replace('hover:bg-indigo-700', 'hover:bg-green-700');
-                
-                setTimeout(() => {
-                    shareBtn.innerHTML = originalText;
-                    shareBtn.classList.replace('bg-green-600', 'bg-indigo-600');
-                    shareBtn.classList.replace('hover:bg-green-700', 'hover:bg-indigo-700');
-                }, 3000);
-            }
-        });
-
     </script>
 </body>
 </html>
