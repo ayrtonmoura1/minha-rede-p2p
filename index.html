@@ -1,150 +1,311 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Workspace - Notion Style</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
-    <style>
-        body { background-color: #f3f4f6; }
-        #login-overlay { backdrop-filter: blur(5px); }
-        .workspace-card { max-width: 900px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 2rem 3rem; min-height: 80vh; }
-        .ql-toolbar.ql-snow { border: none; border-bottom: 1px solid #e5e7eb; padding: 10px 0; margin-bottom: 20px; }
-        .ql-container.ql-snow { border: none; font-size: 1.125rem; min-height: 400px; }
-        .ql-editor { padding: 0; min-height: 400px; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; border: 2px solid white; margin-left: -8px; }
-        .user-avatar:first-child { margin-left: 0; }
-        #users-list { display: flex; flex-direction: row-reverse; }
-        .loading { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>P2P Notes</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script src="https://unpkg.com/quill-cursors@4.0.2/dist/quill-cursors.js"></script>
+
+<style>
+
+body{
+background:#f3f4f6;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+margin-top:40px;
+background:white;
+border-radius:12px;
+padding:30px;
+box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+
+.avatar{
+width:30px;
+height:30px;
+border-radius:100%;
+display:flex;
+align-items:center;
+justify-content:center;
+color:white;
+font-weight:bold;
+margin-left:-8px;
+border:2px solid white;
+}
+
+#users{
+display:flex;
+flex-direction:row-reverse;
+}
+
+</style>
+
 </head>
-<body class="text-gray-800 antialiased">
 
-    <div id="login-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center">
-        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full">
-            <h2 class="text-2xl font-bold mb-2">Quem é você?</h2>
-            <p class="text-gray-500 mb-6 text-sm">Identifique-se para entrar na sala.</p>
-            <input type="text" id="username-input" placeholder="Seu nome" class="w-full p-3 border rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500 outline-none" autocomplete="off">
-            <button id="join-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition">Entrar</button>
-        </div>
-    </div>
+<body class="text-gray-800">
 
-    <div class="workspace-card" style="display: none;" id="main-app">
-        <header class="flex justify-between items-center mb-6 pb-4 border-b">
-            <div class="flex-1">
-                <span class="text-xs font-bold text-indigo-500">P2P NOTE</span>
-                <input type="text" id="note-title" placeholder="Título" class="text-3xl font-bold w-full bg-transparent border-none focus:outline-none mt-2">
-            </div>
-            <div class="flex items-center gap-4">
-                <span class="text-sm text-gray-500" id="users-count">1 na sala</span>
-                <div id="users-list" class="flex"></div>
-            </div>
-        </header>
+<div id="login" class="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-        <main>
-            <div id="editor"></div>
-        </main>
+<div class="bg-white p-8 rounded-xl w-96">
 
-        <footer class="mt-8 pt-4 border-t flex justify-between items-center text-sm text-gray-500">
-            <span>⚠️ Modo offline - dados salvos localmente</span>
-            <button id="share-btn" class="text-indigo-600 hover:text-indigo-800">Compartilhar</button>
-        </footer>
-    </div>
+<h2 class="text-xl font-bold mb-3">Entrar</h2>
 
-    <script>
-        // Versão simplificada sem Yjs (funcionando localmente)
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginOverlay = document.getElementById('login-overlay');
-            const mainApp = document.getElementById('main-app');
-            const usernameInput = document.getElementById('username-input');
-            const joinBtn = document.getElementById('join-btn');
-            const titleInput = document.getElementById('note-title');
-            const usersCount = document.getElementById('users-count');
-            const usersList = document.getElementById('users-list');
-            const shareBtn = document.getElementById('share-btn');
+<input id="name" placeholder="Seu nome"
+class="border p-3 w-full rounded mb-4">
 
-            let userName = localStorage.getItem('p2p_user') || '';
+<button id="join"
+class="bg-indigo-600 text-white w-full py-3 rounded">
+Entrar
+</button>
 
-            if (userName) {
-                usernameInput.value = userName;
-            }
+</div>
 
-            // Inicializar Quill
-            const quill = new Quill('#editor', {
-                theme: 'snow',
-                placeholder: 'Comece a escrever...',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['clean']
-                    ]
-                }
-            });
+</div>
 
-            // Carregar conteúdo salvo
-            function loadSavedContent() {
-                const savedContent = localStorage.getItem('p2p_content');
-                const savedTitle = localStorage.getItem('p2p_title');
-                
-                if (savedContent) {
-                    quill.setContents(JSON.parse(savedContent));
-                }
-                if (savedTitle) {
-                    titleInput.value = savedTitle;
-                }
-            }
+<div id="app" style="display:none">
 
-            // Salvar conteúdo
-            function saveContent() {
-                const content = quill.getContents();
-                localStorage.setItem('p2p_content', JSON.stringify(content));
-                localStorage.setItem('p2p_title', titleInput.value);
-            }
+<div class="container">
 
-            joinBtn.addEventListener('click', function() {
-                if (usernameInput.value.trim()) {
-                    userName = usernameInput.value.trim();
-                    localStorage.setItem('p2p_user', userName);
-                    
-                    loginOverlay.style.display = 'none';
-                    mainApp.style.display = 'block';
-                    
-                    loadSavedContent();
-                    
-                    // Adicionar usuário à lista
-                    const avatar = document.createElement('div');
-                    avatar.className = 'user-avatar';
-                    avatar.style.backgroundColor = '#4f46e5';
-                    avatar.textContent = userName.charAt(0).toUpperCase();
-                    usersList.appendChild(avatar);
-                    
-                    quill.on('text-change', saveContent);
-                    titleInput.addEventListener('input', saveContent);
-                }
-            });
+<header class="flex justify-between border-b pb-4 mb-6">
 
-            // Compartilhar
-            shareBtn.addEventListener('click', function() {
-                const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    alert('Link copiado!');
-                });
-            });
+<input id="title"
+placeholder="Título da nota"
+class="text-3xl font-bold outline-none w-full">
 
-            // Se já tiver usuário logado
-            if (userName) {
-                setTimeout(() => {
-                    joinBtn.click();
-                }, 100);
-            }
-        });
-    </script>
+<div class="flex items-center">
+
+<span id="status"
+class="text-xs text-gray-500 mr-3">
+conectando...
+</span>
+
+<div id="users"></div>
+
+</div>
+
+</header>
+
+<div id="editor"></div>
+
+<div class="flex justify-between mt-10 border-t pt-4">
+
+<button id="share"
+class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded">
+Copiar link
+</button>
+
+<span class="text-xs text-gray-400">
+sincronização colaborativa
+</span>
+
+</div>
+
+</div>
+
+</div>
+
+<script type="module">
+
+import * as Y from "https://esm.sh/yjs@13.6.14"
+
+import { WebrtcProvider } from "https://esm.sh/y-webrtc@10.3.0"
+
+import { WebsocketProvider } from "https://esm.sh/y-websocket@1.5.0"
+
+import { IndexeddbPersistence } from "https://esm.sh/y-indexeddb@9.0.12"
+
+import { QuillBinding } from "https://esm.sh/y-quill@1.0.0"
+
+let username = localStorage.getItem("p2p-name") || ""
+
+document.getElementById("name").value = username
+
+document.getElementById("join").onclick = start
+
+async function start(){
+
+username = document.getElementById("name").value.trim()
+
+if(username.length < 2){
+
+alert("Digite um nome válido")
+return
+
+}
+
+localStorage.setItem("p2p-name",username)
+
+document.getElementById("login").style.display="none"
+document.getElementById("app").style.display="block"
+
+init()
+
+}
+
+async function init(){
+
+const params = new URLSearchParams(location.search)
+
+let room = params.get("room")
+
+if(!room){
+
+room = crypto.randomUUID()
+
+history.replaceState({},'',`?room=${room}`)
+
+}
+
+const color = "#" + Math.floor(Math.random()*16777215).toString(16)
+
+const ydoc = new Y.Doc()
+
+const yText = ydoc.getText("content")
+
+const yMeta = ydoc.getMap("meta")
+
+const persistence = new IndexeddbPersistence(room,ydoc)
+
+await persistence.whenSynced
+
+let provider
+
+try{
+
+provider = new WebrtcProvider(room,ydoc,{
+
+signaling:["wss://signaling.yjs.dev"]
+
+})
+
+console.log("WebRTC ativo")
+
+}catch{
+
+provider = new WebsocketProvider(
+
+"wss://demos.yjs.dev",
+
+room,
+
+ydoc
+
+)
+
+console.log("fallback websocket")
+
+}
+
+const awareness = provider.awareness
+
+awareness.setLocalStateField("user",{
+
+name:username,
+color:color
+
+})
+
+const quill = new Quill("#editor",{
+
+theme:"snow",
+
+modules:{
+
+cursors:true,
+
+toolbar:[
+[{header:[1,2,false]}],
+["bold","italic","underline"],
+[{list:"ordered"},{list:"bullet"}],
+["code-block"]
+]
+
+}
+
+})
+
+new QuillBinding(yText,quill,awareness)
+
+const title = document.getElementById("title")
+
+title.value = yMeta.get("title") || ""
+
+title.oninput = ()=>{
+
+yMeta.set("title",title.value)
+
+}
+
+yMeta.observe(()=>{
+
+if(document.activeElement !== title){
+
+title.value = yMeta.get("title") || ""
+
+}
+
+})
+
+const usersDiv = document.getElementById("users")
+
+const status = document.getElementById("status")
+
+function updateUsers(){
+
+usersDiv.innerHTML=""
+
+let count = 0
+
+awareness.getStates().forEach(state=>{
+
+if(!state.user) return
+
+count++
+
+const avatar = document.createElement("div")
+
+avatar.className="avatar"
+
+avatar.style.background=state.user.color
+
+avatar.innerText = state.user.name[0].toUpperCase()
+
+avatar.title = state.user.name
+
+usersDiv.appendChild(avatar)
+
+})
+
+status.innerText = count>1 ? count+" online" : "só você"
+
+}
+
+awareness.on("change",updateUsers)
+
+setInterval(updateUsers,2000)
+
+document.getElementById("share").onclick = async ()=>{
+
+await navigator.clipboard.writeText(location.href)
+
+alert("link copiado")
+
+}
+
+}
+
+</script>
+
 </body>
+
 </html>
