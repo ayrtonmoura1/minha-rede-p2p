@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Notes - Fusion Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import * as Y from 'https://esm.sh/yjs@13.5.40';
+        import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.2.5';
+        import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.9';
+
+        // 1. Configuração do ID da Sala (extraído da URL ou gerado agora)
+        const urlParams = new URLSearchParams(window.location.search);
+        let roomName = urlParams.get('room');
+        if (!roomName) {
+            roomName = 'nota-' + Math.random().toString(36).substring(7);
+        }
+
+        // 2. Inicialização do Yjs (O cérebro da nota)
+        const ydoc = new Y.Doc();
+        
+        // Persistência no navegador (IndexedDB)
+        const indexeddbProvider = new IndexeddbPersistence(roomName, ydoc);
+
+        // Conexão P2P (WebRTC) - Usa sinalizadores públicos gratuitos
+        const networkProvider = new WebrtcProvider(roomName, ydoc, {
+            signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
+        });
+
+        // 3. Elementos da Interface
+        const inputTitle = document.getElementById('title');
+        const inputContent = document.getElementById('content');
+        const shareBtn = document.getElementById('share-btn');
+        const statusPeer = document.getElementById('status-peer');
+
+        // 4. Mapeamento de Dados (Y.Map para título e conteúdo)
+        const yMap = ydoc.getMap('note-data');
+
+        // Sincronizar do Banco para a Tela
+        yMap.observe(() => {
+            if (document.activeElement !== inputTitle) inputTitle.value = yMap.get('title') || '';
+            if (document.activeElement !== inputContent) inputContent.value = yMap.get('content') || '';
+        });
+
+        // Enviar da Tela para o Banco
+        inputTitle.addEventListener('input', () => yMap.set('title', inputTitle.value));
+        inputContent.addEventListener('input', () => yMap.set('content', inputContent.value));
+
+        // 5. Função de Compartilhar
+        shareBtn.addEventListener('click', () => {
+            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomName}`;
+            navigator.clipboard.writeText(shareUrl);
+            alert('Link de sincronização copiado! Envie para alguém abrir no navegador deles.');
+        });
+
+        // Mostrar quantos "peers" estão conectados
+        networkProvider.on('peers', (event) => {
+            statusPeer.innerText = `Conectado com ${event.webrtcConns.size} pessoa(s)`;
+        });
+
+    </script>
+    <style>
+        body { background: #f9fafb; }
+        .note-card { max-width: 600px; margin: 50px auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="note-card">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-gray-800">P2P Note 📝</h1>
+            <span id="status-peer" class="text-xs text-green-600 font-medium">Conectando...</span>
+        </div>
+
+        <input type="text" id="title" placeholder="Título da nota..." 
+            class="w-full mb-4 p-2 text-2xl font-semibold border-none focus:ring-0 outline-none" autocomplete="off">
+        
+        <textarea id="content" placeholder="Comece a escrever sua wiki ou tarefa..." 
+            class="w-full h-64 p-2 border-none focus:ring-0 outline-none resize-none text-gray-600" autocomplete="off"></textarea>
+
+        <div class="mt-6 flex gap-3">
+            <button id="share-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Compartilhar Link
+            </button>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-4 italic">Dados salvos localmente e sincronizados via WebRTC (sem servidor central).</p>
+    </div>
+
+</body>
+</html>
+
