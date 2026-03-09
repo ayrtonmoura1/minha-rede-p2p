@@ -106,11 +106,20 @@
             const localProvider = new IndexeddbPersistence(roomName, ydoc);
 
             // AQUI ESTÁ O SEGREDO: Usando o servidor público oficial do Yjs (muito estável)
-            const networkProvider = new WebsocketProvider(
-                'wss://demos.yjs.dev/ws', 
-                roomName, 
-                ydoc
-            );
+           // O SEU SERVIDOR P2P EXCLUSIVO
+const networkProvider = new WebrtcProvider(roomName, ydoc, {
+    signaling: [
+        'wss://https://meu-servidor-p2p.onrender.com' // IMPORTANTE: Mantenha o wss:// na frente!
+    ],
+    peerOpts: {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    }
+});
 
             const awareness = networkProvider.awareness;
             awareness.setLocalStateField('user', { name: myName, color: myColor });
