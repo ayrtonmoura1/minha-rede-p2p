@@ -125,7 +125,13 @@
 
             const localProvider = new IndexeddbPersistence(roomName, ydoc);
             const networkProvider = new WebrtcProvider(roomName, ydoc, {
-                signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
+                // Lista estendida de servidores públicos para garantir a conexão
+                signaling: [
+                    'wss://signaling.yjs.dev',
+                    'wss://y-webrtc-signaling-eu.herokuapp.com',
+                    'wss://y-webrtc-signaling-us.herokuapp.com',
+                    'wss://signaling.tiptap.dev'
+                ]
             });
 
             // 3. Awareness (Presença)
