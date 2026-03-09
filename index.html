@@ -3,91 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Notes - Fusion Sync</title>
+    <title>P2P Workspaces - MVP</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import * as Y from 'https://esm.sh/yjs@13.5.40';
-        import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.2.5';
-        import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.9';
+</head>
+<body class="bg-gray-100 flex items-start justify-center min-h-screen pt-10">
 
-        // 1. Configuração do ID da Sala (extraído da URL ou gerado agora)
+    <div class="w-full max-w-3xl bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h1 class="text-2xl font-bold text-gray-800">Workspace P2P ⚡</h1>
+            <span id="status-peer" class="text-sm text-gray-500 font-medium">🔴 Sozinho na sala</span>
+        </div>
+
+        <input type="text" id="title" placeholder="Título da tarefa..." 
+            class="w-full mb-4 p-2 text-2xl font-semibold border-b-2 border-transparent hover:border-gray-100 focus:border-indigo-500 transition-colors outline-none" autocomplete="off">
+        
+        <textarea id="content" placeholder="Descreva os detalhes aqui..." 
+            class="w-full h-64 p-2 border-2 border-transparent hover:border-gray-100 focus:border-indigo-500 transition-colors outline-none resize-none text-gray-700" autocomplete="off"></textarea>
+
+        <div class="mt-6 flex gap-3">
+            <button id="share-btn" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition font-medium flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Copiar Link da Sala
+            </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-4 italic">Seus dados ficam apenas no seu navegador. Quando outra pessoa entra pelo link, vocês sincronizam via rede peer-to-peer.</p>
+    </div>
+
+    <script type="module">
+        import * as Y from 'https://esm.sh/yjs@13.6.14';
+        import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.3.0';
+        import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12';
+
+        // 1. Gerencia a URL e a Sala
         const urlParams = new URLSearchParams(window.location.search);
         let roomName = urlParams.get('room');
         if (!roomName) {
-            roomName = 'nota-' + Math.random().toString(36).substring(7);
+            roomName = 'tarefa-' + Math.random().toString(36).substring(2, 10);
+            // Atualiza a URL sem recarregar a página
+            window.history.replaceState({}, '', `?room=${roomName}`);
         }
 
-        // 2. Inicialização do Yjs (O cérebro da nota)
         const ydoc = new Y.Doc();
-        
-        // Persistência no navegador (IndexedDB)
-        const indexeddbProvider = new IndexeddbPersistence(roomName, ydoc);
+        const yMap = ydoc.getMap('workspace-data');
 
-        // Conexão P2P (WebRTC) - Usa sinalizadores públicos gratuitos
-        const networkProvider = new WebrtcProvider(roomName, ydoc, {
-            signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-eu.herokuapp.com']
-        });
-
-        // 3. Elementos da Interface
         const inputTitle = document.getElementById('title');
         const inputContent = document.getElementById('content');
-        const shareBtn = document.getElementById('share-btn');
         const statusPeer = document.getElementById('status-peer');
 
-        // 4. Mapeamento de Dados (Y.Map para título e conteúdo)
-        const yMap = ydoc.getMap('note-data');
-
-        // Sincronizar do Banco para a Tela
-        yMap.observe(() => {
-            if (document.activeElement !== inputTitle) inputTitle.value = yMap.get('title') || '';
-            if (document.activeElement !== inputContent) inputContent.value = yMap.get('content') || '';
+        // 2. CORREÇÃO 1: Banco de Dados Local
+        const indexeddbProvider = new IndexeddbPersistence(roomName, ydoc);
+        
+        // Quando o banco local terminar de carregar, ele joga os dados para a tela
+        indexeddbProvider.on('synced', () => {
+            inputTitle.value = yMap.get('title') || '';
+            inputContent.value = yMap.get('content') || '';
         });
 
-        // Enviar da Tela para o Banco
+        // 3. CORREÇÃO 2: WebRTC (Agora usando servidores padrão mais estáveis)
+        const networkProvider = new WebrtcProvider(roomName, ydoc);
+
+        // 4. Sincronização entre os Peers e a Tela
+        yMap.observe(() => {
+            // Só atualiza o campo se o usuário NÃO estiver com ele selecionado agora
+            if (document.activeElement !== inputTitle) {
+                inputTitle.value = yMap.get('title') || '';
+            }
+            if (document.activeElement !== inputContent) {
+                inputContent.value = yMap.get('content') || '';
+            }
+        });
+
+        // Envia as mudanças da tela para a rede P2P
         inputTitle.addEventListener('input', () => yMap.set('title', inputTitle.value));
         inputContent.addEventListener('input', () => yMap.set('content', inputContent.value));
 
-        // 5. Função de Compartilhar
-        shareBtn.addEventListener('click', () => {
-            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomName}`;
-            navigator.clipboard.writeText(shareUrl);
-            alert('Link de sincronização copiado! Envie para alguém abrir no navegador deles.');
+        // 5. Monitora quem está online na sala
+        networkProvider.awareness.on('change', () => {
+            const usersCount = networkProvider.awareness.getStates().size;
+            // O tamanho inclui você mesmo, então diminuímos 1
+            if (usersCount > 1) {
+                statusPeer.innerHTML = `🟢 <span class="text-green-600">${usersCount - 1} pessoa(s) conectada(s)</span>`;
+            } else {
+                statusPeer.innerHTML = "🔴 <span class="text-gray-500">Sozinho na sala</span>";
+            }
         });
 
-        // Mostrar quantos "peers" estão conectados
-        networkProvider.on('peers', (event) => {
-            statusPeer.innerText = `Conectado com ${event.webrtcConns.size} pessoa(s)`;
+        // 6. Botão de Compartilhar
+        document.getElementById('share-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Link da sala copiado! Teste abrindo em outra aba ou mande para alguém.');
         });
-
     </script>
-    <style>
-        body { background: #f9fafb; }
-        .note-card { max-width: 600px; margin: 50px auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-    </style>
-</head>
-<body>
-
-    <div class="note-card">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold text-gray-800">P2P Note 📝</h1>
-            <span id="status-peer" class="text-xs text-green-600 font-medium">Conectando...</span>
-        </div>
-
-        <input type="text" id="title" placeholder="Título da nota..." 
-            class="w-full mb-4 p-2 text-2xl font-semibold border-none focus:ring-0 outline-none" autocomplete="off">
-        
-        <textarea id="content" placeholder="Comece a escrever sua wiki ou tarefa..." 
-            class="w-full h-64 p-2 border-none focus:ring-0 outline-none resize-none text-gray-600" autocomplete="off"></textarea>
-
-        <div class="mt-6 flex gap-3">
-            <button id="share-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                Compartilhar Link
-            </button>
-        </div>
-        <p class="text-[10px] text-gray-400 mt-4 italic">Dados salvos localmente e sincronizados via WebRTC (sem servidor central).</p>
-    </div>
-
 </body>
 </html>
-
